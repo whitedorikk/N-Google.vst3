@@ -1,34 +1,48 @@
+
 name: Build N-Google VST3
 
 on:
   workflow_dispatch:
   push:
-    branches: [ main, master ]
+    branches:
+      - main
+      - master
 
 jobs:
   build:
     runs-on: windows-latest
+
     steps:
-      - name: Checkout
+      - name: Checkout project
         uses: actions/checkout@v4
 
-      - name: Configure
-        run: cmake -S . -B build -A x64
+      - name: Setup NuGet
+        uses: NuGet/setup-nuget@v2
 
-      - name: Build VST3
-        run: cmake --build build --config Release --target NGoogle_VST3 --parallel
-
-      - name: Package plugin
+      - name: Install WebView2 SDK
         shell: pwsh
         run: |
-          $plugin = Get-ChildItem -Path "build" -Filter "N-Google.vst3" -Recurse -Directory | Select-Object -First 1
-          if (-not $plugin) { throw "N-Google.vst3 was not produced" }
-          New-Item -ItemType Directory -Force -Path "dist" | Out-Null
-          Compress-Archive -Path $plugin.FullName -DestinationPath "dist/N-Google_Windows_x64.zip" -Force
+          nuget install Microsoft.Web.WebView2 `
+            -Version 1.0.2903.40 `
+            -OutputDirectory third_party/nuget `
+            -NonInteractive
 
-      - name: Upload artifact
+      - name: Configure CMake
+        run: >
+          cmake -B build -S .
+          -DCMAKE_BUILD_TYPE=Release
+          -DJUCE_WEBVIEW2_PACKAGE_LOCATION="${{ github.workspace }}/third_party/nuget"
+
+      - name: Build VST3
+        run: >
+          cmake --build build
+          --config Release
+          --target NGoogle_VST3
+          --parallel
+
+      - name: Upload VST3 artifact
         uses: actions/upload-artifact@v4
         with:
           name: N-Google_Windows_x64
-          path: dist/N-Google_Windows_x64.zip
+          path: build/NGoogle_artefacts/Release/VST3/
           if-no-files-found: error
