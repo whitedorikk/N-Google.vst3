@@ -2,47 +2,42 @@
 name: Build N-Google VST3
 
 on:
-  workflow_dispatch:
   push:
-    branches:
-      - main
-      - master
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: windows-latest
 
     steps:
-      - name: Checkout project
+      - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
 
       - name: Setup NuGet
         uses: NuGet/setup-nuget@v2
 
       - name: Install WebView2 SDK
-        shell: pwsh
         run: |
-          nuget install Microsoft.Web.WebView2 `
-            -Version 1.0.2903.40 `
-            -OutputDirectory third_party/nuget `
-            -NonInteractive
+          nuget install Microsoft.Web.WebView2 -Version 1.0.2903.40 -OutputDirectory third_party/nuget
 
       - name: Configure CMake
-        run: >
-          cmake -B build -S .
-          -DCMAKE_BUILD_TYPE=Release
-          -DJUCE_WEBVIEW2_PACKAGE_LOCATION="${{ github.workspace }}/third_party/nuget"
+        run: |
+          cmake -B build -S . -A x64 -DJUCE_WEBVIEW2_PACKAGE_LOCATION="${{ github.workspace }}/third_party/nuget/Microsoft.Web.WebView2.1.0.2903.40"
 
       - name: Build VST3
-        run: >
-          cmake --build build
-          --config Release
-          --target NGoogle_VST3
-          --parallel
+        run: |
+          cmake --build build --config Release --target NGoogle_VST3 --parallel
 
-      - name: Upload VST3 artifact
+      - name: Upload plugin
         uses: actions/upload-artifact@v4
         with:
           name: N-Google_Windows_x64
           path: build/NGoogle_artefacts/Release/VST3/
-          if-no-files-found: error
