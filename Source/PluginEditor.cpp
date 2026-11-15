@@ -1,72 +1,190 @@
+
 #include "PluginEditor.h"
 
-NGoogleAudioProcessorEditor::NGoogleAudioProcessorEditor(NGoogleAudioProcessor& p)
-    : AudioProcessorEditor(&p)
+juce::WebBrowserComponent::Options
+NGoogleAudioProcessorEditor::createBrowserOptions()
 {
-    setSize(1000, 680);
+    auto profileFolder =
+        juce::File::getSpecialLocation(
+            juce::File::userApplicationDataDirectory
+        ).getChildFile("N-Google")
+         .getChildFile("WebView2");
+
+    profileFolder.createDirectory();
+
+    const auto webView2Options =
+        juce::WebBrowserComponent::Options::WinWebView2{}
+            .withUserDataFolder(profileFolder)
+            .withStatusBarDisabled();
+
+    return juce::WebBrowserComponent::Options{}
+        .withBackend(
+            juce::WebBrowserComponent::Options::Backend::webview2
+        )
+        .withWinWebView2Options(webView2Options)
+        .withKeepPageLoadedWhenBrowserIsHidden();
+}
+
+NGoogleAudioProcessorEditor::NGoogleAudioProcessorEditor(
+    NGoogleAudioProcessor& processor)
+    : AudioProcessorEditor(&processor),
+      audioProcessor(processor),
+      browser(createBrowserOptions())
+{
+    setSize(1100, 720);
     setResizable(true, true);
+    setResizeLimits(640, 420, 2400, 1600);
+
+    addAndMakeVisible(browser);
 
     addAndMakeVisible(backButton);
     addAndMakeVisible(forwardButton);
     addAndMakeVisible(reloadButton);
     addAndMakeVisible(homeButton);
     addAndMakeVisible(addressBar);
-    addAndMakeVisible(goButton);
-    addAndMakeVisible(browser);
+    addAndMakeVisible(metadataLabel);
 
-    addressBar.setText("https://www.google.com", juce::dontSendNotification);
-    addressBar.setReturnKeyStartsNewLine(false);
-    addressBar.onReturnKey = [this] { navigate(); };
-    goButton.onClick = [this] { navigate(); };
-    backButton.onClick = [this] { browser.goBack(); };
-    forwardButton.onClick = [this] { browser.goForward(); };
-    reloadButton.onClick = [this] { browser.refresh(); };
+    backButton.onClick = [this]
+    {
+        browser.goBack();
+    };
+
+    forwardButton.onClick = [this]
+    {
+        browser.goForward();
+    };
+
+    reloadButton.onClick = [this]
+    {
+        browser.refresh();
+    };
+
     homeButton.onClick = [this]
     {
-        addressBar.setText("https://www.google.com", juce::dontSendNotification);
-        navigate();
+        goHome();
     };
+
+    addressBar.setText("https://www.google.com");
+    addressBar.setFont(juce::Font(15.0f));
+    addressBar.setColour(
+        juce::TextEditor::backgroundColourId,
+        juce::Colours::white
+    );
+    addressBar.setColour(
+        juce::TextEditor::textColourId,
+        juce::Colours::black
+    );
+    addressBar.setColour(
+        juce::TextEditor::outlineColourId,
+        juce::Colour(0xffdadce0)
+    );
+    addressBar.setBorder(
+        juce::BorderSize<int>(8, 12, 8, 12)
+    );
+
+    addressBar.onReturnKey = [this]
+    {
+        navigateToAddress();
+    };
+
+    metadataLabel.setText(
+        "TG: @vst_ntune",
+        juce::dontSendNotification
+    );
+    metadataLabel.setFont(juce::Font(11.0f));
+    metadataLabel.setColour(
+        juce::Label::textColourId,
+        juce::Colour(0xff5f6368)
+    );
+    metadataLabel.setJustificationType(
+        juce::Justification::centred
+    );
 
     browser.goToURL("https://www.google.com");
 }
 
-void NGoogleAudioProcessorEditor::paint(juce::Graphics& g)
+void NGoogleAudioProcessorEditor::paint(
+    juce::Graphics& g)
 {
     g.fillAll(juce::Colour(0xfff8f9fa));
+
     g.setColour(juce::Colour(0xffdadce0));
-    g.drawLine(0.0f, 42.0f, static_cast<float>(getWidth()), 42.0f, 1.0f);
+    g.drawLine(
+        0.0f,
+        48.0f,
+        static_cast<float>(getWidth()),
+        48.0f,
+        1.0f
+    );
 }
 
 void NGoogleAudioProcessorEditor::resized()
 {
     auto area = getLocalBounds();
-    auto toolbar = area.removeFromTop(42).reduced(5, 4);
 
-    backButton.setBounds(toolbar.removeFromLeft(34));
-    toolbar.removeFromLeft(3);
-    forwardButton.setBounds(toolbar.removeFromLeft(34));
-    toolbar.removeFromLeft(3);
-    reloadButton.setBounds(toolbar.removeFromLeft(34));
-    toolbar.removeFromLeft(3);
-    homeButton.setBounds(toolbar.removeFromLeft(34));
-    toolbar.removeFromLeft(8);
-    goButton.setBounds(toolbar.removeFromRight(48));
-    toolbar.removeFromRight(4);
-    addressBar.setBounds(toolbar);
+    auto toolbar = area.removeFromTop(48);
+
+    backButton.setBounds(
+        toolbar.removeFromLeft(42).reduced(4)
+    );
+
+    forwardButton.setBounds(
+        toolbar.removeFromLeft(42).reduced(4)
+    );
+
+    reloadButton.setBounds(
+        toolbar.removeFromLeft(42).reduced(4)
+    );
+
+    homeButton.setBounds(
+        toolbar.removeFromLeft(42).reduced(4)
+    );
+
+    metadataLabel.setBounds(
+        toolbar.removeFromRight(112).reduced(2)
+    );
+
+    addressBar.setBounds(
+        toolbar.reduced(5, 7)
+    );
+
     browser.setBounds(area);
 }
 
-void NGoogleAudioProcessorEditor::navigate()
+void NGoogleAudioProcessorEditor::navigateToAddress()
 {
-    auto target = addressBar.getText().trim();
-    if (target.isEmpty())
+    auto input = addressBar.getText().trim();
+
+    if (input.isEmpty())
         return;
 
-    const bool looksLikeUrl = target.containsChar('.') && !target.containsChar(' ');
-    if (!target.startsWithIgnoreCase("http://") && !target.startsWithIgnoreCase("https://"))
-        target = looksLikeUrl ? "https://" + target
-                              : "https://www.google.com/search?q=" + juce::URL::addEscapeChars(target, true);
+    if (input.startsWithIgnoreCase("https://")
+        || input.startsWithIgnoreCase("http://"))
+    {
+        browser.goToURL(input);
+        return;
+    }
 
-    addressBar.setText(target, juce::dontSendNotification);
-    browser.goToURL(target);
+    if (!input.contains(" ")
+        && input.contains("."))
+    {
+        browser.goToURL("https://" + input);
+        return;
+    }
+
+    auto searchUrl =
+        juce::URL("https://www.google.com/search")
+            .withParameter("q", input);
+
+    browser.goToURL(searchUrl.toString(true));
+}
+
+void NGoogleAudioProcessorEditor::goHome()
+{
+    addressBar.setText(
+        "https://www.google.com",
+        juce::dontSendNotification
+    );
+
+    browser.goToURL("https://www.google.com");
 }
