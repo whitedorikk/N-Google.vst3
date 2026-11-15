@@ -1,33 +1,43 @@
+
 # N-Google
 
-A JUCE-based Windows VST3 utility plugin with an embedded browser that opens Google by default.
+Google-style browser VST3 plugin for Windows x64.
 
-**Plugin metadata:** `TG: @vst_ntune`
+## Features
 
-## Build on GitHub (no local Visual Studio required)
+- Embedded Microsoft Edge WebView2 browser
+- Google homepage
+- Address and search bar
+- Back, Forward, Reload and Home buttons
+- Persistent browser profile
+- Audio passthrough
+- JUCE 8.0.12
+- Windows x64 VST3
 
-1. Create a new GitHub repository.
-2. Upload the contents of this folder to the repository (keep `.github/workflows/build-windows.yml`).
-3. Open **Actions** → **Build N-Google VST3** → **Run workflow**.
-4. When the workflow finishes, open the run and download the `N-Google_Windows_x64` artifact.
-5. Extract the ZIP. Copy `N-Google.vst3` to:
-   `C:\Program Files\Common Files\VST3`
-6. Rescan plugins in FL Studio.
+## Metadata
 
-The workflow builds the plugin on a GitHub-hosted Windows runner. This source archive is not itself a compiled VST3 binary.
+- Name: N-Google
+- Bundle ID: com.vst_ntune.ngoogle
+- Developer: vst_ntune
+- Telegram: TG: @vst_ntune
 
-## Local build
+## Build
 
-Requires CMake, a C++17 compiler and the Windows SDK / Visual Studio Build Tools.
+The GitHub Actions workflow builds the Windows x64 VST3.
 
-```powershell
-cmake -S . -B build -A x64
-cmake --build build --config Release --target NGoogle_VST3 --parallel
-```
+1. Upload this repository to GitHub.
+2. Open the Actions tab.
+3. Select Build N-Google VST3.
+4. Start the workflow with Run workflow.
+5. Wait for the build to finish.
+6. Download N-Google_Windows_x64 from Artifacts.
 
-## Notes
+## Installation
 
-- Audio passes through unchanged.
-- Browser data is managed by the platform browser backend.
-- The browser backend available to JUCE depends on the Windows environment. On Windows, install the Microsoft Edge WebView2 Runtime if the embedded browser does not initialize.
-- JUCE is fetched from its upstream repository at build time. Review JUCE licensing terms for your distribution model.
+Copy N-Google.vst3 into:
+
+C:\Program Files\Common Files\VST3
+
+Restart FL Studio and scan for plugins.
+
+Microsoft Edge WebView2 Runtime must be installed on the computer.
