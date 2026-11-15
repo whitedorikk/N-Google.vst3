@@ -1,0 +1,34 @@
+name: Build N-Google VST3
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -S . -B build -A x64
+
+      - name: Build VST3
+        run: cmake --build build --config Release --target NGoogle_VST3 --parallel
+
+      - name: Package plugin
+        shell: pwsh
+        run: |
+          $plugin = Get-ChildItem -Path "build" -Filter "N-Google.vst3" -Recurse -Directory | Select-Object -First 1
+          if (-not $plugin) { throw "N-Google.vst3 was not produced" }
+          New-Item -ItemType Directory -Force -Path "dist" | Out-Null
+          Compress-Archive -Path $plugin.FullName -DestinationPath "dist/N-Google_Windows_x64.zip" -Force
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: N-Google_Windows_x64
+          path: dist/N-Google_Windows_x64.zip
+          if-no-files-found: error
