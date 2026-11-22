@@ -1,75 +1,30 @@
-
 name: Build N-Google VST3
 
 on:
   workflow_dispatch:
   push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+    branches: [ main, master ]
 
 jobs:
   build:
     runs-on: windows-latest
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
 
-      - name: Setup MSBuild
-        uses: microsoft/setup-msbuild@v2
+      - name: Build VST3
+        run: cargo xtask bundle n_google --release
 
-      - name: Setup NuGet
-        uses: NuGet/setup-nuget@v2
-
-      - name: Install WebView2 SDK
+      - name: Package plugin
         shell: pwsh
         run: |
-          nuget install Microsoft.Web.WebView2 `
-            -Version 1.0.2903.40 `
-            -OutputDirectory third_party/nuget
+          $plugin = Get-Item "target/bundled/N-Google.vst3"
+          New-Item -ItemType Directory -Force -Path "dist" | Out-Null
+          Compress-Archive -Path $plugin.FullName -DestinationPath "dist/N-Google_Windows_x64.zip" -Force
 
-          if ($LASTEXITCODE -ne 0) {
-            throw "WebView2 installation failed"
-          }
-
-      - name: Verify WebView2
-        shell: pwsh
-        run: |
-          $package = Get-ChildItem "third_party/nuget" -Directory |
-            Where-Object { $_.Name -like "Microsoft.Web.WebView2*" } |
-            Select-Object -First 1
-
-          if (-not $package) {
-            throw "WebView2 package not found"
-          }
-
-          $header = Join-Path $package.FullName "build/native/include/WebView2.h"
-
-          if (-not (Test-Path $header)) {
-            throw "WebView2.h missing: $header"
-          }
-
-          Write-Host "WebView2 SDK found: $header"
-
-      - name: Configure CMake
-        shell: pwsh
-        run: |
-          cmake -B build -S . -A x64 `
-            "-DJUCE_WEBVIEW2_PACKAGE_LOCATION=${{ github.workspace }}/third_party/nuget"
-
-          if ($LASTEXITCODE -ne 0) {
-            throw "CMake configuration failed"
-          }
-
-      - name: Build N-Google
-        run: cmake --build build --config Release --target NGoogle_VST3 --parallel
-
-      - name: Upload VST3
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: N-Google_Windows_x64
-          path: build/NGoogle_artefacts/Release/VST3/
+          path: dist/N-Google_Windows_x64.zip
           if-no-files-found: error
