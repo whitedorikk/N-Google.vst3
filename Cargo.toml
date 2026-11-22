@@ -1,0 +1,27 @@
+[package]
+name = "n_google"
+version = "1.0.0"
+edition = "2021"
+authors = ["TG: @vst_ntune"]
+description = "TG: @vst_ntune"
+homepage = "https://t.me/vst_ntune"
+license = "GPL-3.0-or-later"
+
+[workspace]
+members = ["xtask"]
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+nih_plug = { git = "https://github.com/robbert-vdh/nih-plug.git" }
+serde_json = "1"
+urlencoding = "2"
+
+[target.'cfg(windows)'.dependencies]
+wry = "0.50"
+raw-window-handle = "0.6"
+
+[profile.release]
+lto = "thin"
+strip = "symbols"
