@@ -32,8 +32,8 @@ input:focus{border-color:#4285f4}
 #st{font-size:12px;color:#5f6368;max-width:190px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #chip{display:none;height:32px;line-height:30px;padding:0 12px;border:1px solid #34a853;background:#e6f4ea;color:#137333;border-radius:16px;font-size:13px;font-weight:600;cursor:grab;max-width:230px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 </style>
-<button onclick="send('back')">&#8592;</button><button onclick="send('forward')">&#8594;</button>
-<button onclick="send('reload')">&#8635;</button><button onclick="send('home')">G</button>
+<button onclick="send('back')">&#9664;</button><button onclick="send('forward')">&#9654;</button>
+<button onclick="send('reload')">&#8635;</button><button onclick="send('home')">&#127968;&#65038;</button>
 <input id="a" spellcheck="false" autocomplete="off"><span id="st"></span>
 <div id="chip" title="Перетащи в плейлист или Channel Rack FL Studio" onmousedown="send('drag')"></div>
 <button id="imp" onclick="send('import')">В FL</button>
@@ -169,6 +169,15 @@ fn output_dir() -> PathBuf {
     std::env::temp_dir().join("N-Google")
 }
 
+fn newest_wav(dir: &Path, since: std::time::SystemTime) -> Option<PathBuf> {
+    std::fs::read_dir(dir).ok()?
+        .filter_map(|e| e.ok())
+        .filter(|e| e.path().extension().map(|x| x.eq_ignore_ascii_case("wav")).unwrap_or(false))
+        .filter_map(|e| { let m = e.metadata().ok()?.modified().ok()?; (m >= since).then(|| (m, e.path())) })
+        .max_by_key(|(m, _)| *m)
+        .map(|(_, p)| p)
+}
+
 fn run_import(url: String, state: Shared) {
     let Some(appdata) = std::env::var_os("APPDATA") else {
         return set_state(&state, false, "APPDATA не найден", None);
@@ -181,6 +190,7 @@ fn run_import(url: String, state: Shared) {
     let _ = std::fs::create_dir_all(&out);
     set_state(&state, true, "Скачиваю аудио в WAV…", None);
 
+    let started = std::time::SystemTime::now() - std::time::Duration::from_secs(3);
     let result = hidden(bin.join("yt-dlp.exe"), &[
         os("--no-playlist"), os("--no-warnings"), os("--no-simulate"),
         os("-x"), os("--audio-format"), os("wav"),
@@ -188,16 +198,14 @@ fn run_import(url: String, state: Shared) {
         os("--windows-filenames"),
         os("-P"), out.as_os_str(),
         os("-o"), os("%(title).80B [%(id)s].%(ext)s"),
-        os("--print"), os("after_move:filepath"),
         os(&url),
     ]);
     match result {
         Ok(o) if o.status.success() => {
-            let text = String::from_utf8_lossy(&o.stdout).to_string();
-            let path = text.lines().map(str::trim).filter(|l| !l.is_empty()).last().map(PathBuf::from);
-            match path {
-                Some(p) if p.exists() => set_state(&state, false, "Готово — перетащи в FL", Some(p)),
-                _ => set_state(&state, false, "Файл не найден после загрузки", None),
+            // the console code page mangles non-ASCII titles, so the result is found by scanning the folder instead of parsing stdout
+            match newest_wav(&out, started) {
+                Some(p) => set_state(&state, false, "Готово — перетащи в FL", Some(p)),
+                None => set_state(&state, false, "WAV не появился (ffmpeg?)", None),
             }
         }
         Ok(o) => {
