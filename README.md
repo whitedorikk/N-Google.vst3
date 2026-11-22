@@ -1,6 +1,8 @@
 # N-Google (Rust)
 
 VST3 utility plugin (TG: @vst_ntune): embedded WebView2 browser, Google by default, toolbar with back/forward/reload/home/address bar.
+On YouTube watch pages a **В FL** button appears: the audio is downloaded as WAV (yt-dlp + ffmpeg are fetched once into `%APPDATA%\N-Google\bin`, needs internet),
+then drag the green chip into the FL Studio playlist / Channel Rack. Files go to `Documents\Image-Line\FL Studio\Data\Patches\Packs\N-Google`.
 Audio passes through unchanged. The last page is saved in the DAW project.
 
 Built with nih-plug + wry. Windows only.
